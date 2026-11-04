@@ -8,7 +8,7 @@ import MapRegionTab from "./MapRegionTab.vue";
 
 /**
  * 地图页左栏：Tabs 配置面板（下载配置 / 地图源 / 区域）。
- * 各 Tab 内容拆分为独立组件，面板间共享的选中状态后续可提升到 map 页面或 store。
+ * 各 Tab 内容拆分为独立组件，跨组件共享的选中状态统一走 useMapStore。
  */
 const activeTab = ref("download");
 </script>

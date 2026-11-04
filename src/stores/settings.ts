@@ -31,7 +31,7 @@ export const DOWNLOAD_THREADS_RANGE = { min: 1, max: 256 };
 export const DOWNLOAD_RETRY_RANGE = { min: 1, max: 100 };
 
 /** 下载设置默认值（无持久化记录时使用） */
-const DOWNLOAD_DEFAULTS = { threads: 4, retryCount: 3, autoDownload: true };
+const DOWNLOAD_DEFAULTS = { threads: 4, retryCount: 3, autoDownload: false };
 
 /** 限定到 [min, max] 区间并取整（非法值回退到 min） */
 function clampInt(value: number, min: number, max: number) {

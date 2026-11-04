@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import 'vue-sonner/style.css'
 import AppDialogs from "@/components/app/AppDialogs.vue";
 import { Toaster } from "@/components/ui/sonner";
 </script>
@@ -14,7 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 
     <!-- custom 菜单项对应的弹窗与全局通知 -->
     <AppDialogs />
-    <Toaster />
+    <Toaster position="top-center" :offset="48" :gap="12" />
   </main>
 </template>
 

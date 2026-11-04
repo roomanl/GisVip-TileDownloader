@@ -1,8 +1,17 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-// 托盘功能已改由前端实现：src/lib/tray.ts（@tauri-apps/api/tray）
+use tauri::Manager;
+//use tokio::time::{Duration, sleep};
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+// 显示主窗口
+#[tauri::command]
+async fn show_main_window(window: tauri::Window) -> Result<(), String> {
+    let main_window = window.get_webview_window("main").unwrap();
+    main_window.show().unwrap();
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -14,7 +23,7 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_store::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![greet, show_main_window])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

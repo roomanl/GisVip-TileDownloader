@@ -26,7 +26,7 @@ const routes: RouteRecordRaw[] = [
                 path: page.route,
                 name: page.id,
                 component: page.component,
-                meta: { title: page.title },
+                meta: { title: page.title, bleed: page.bleed },
             } as RouteRecordRaw)),
         ],
     },

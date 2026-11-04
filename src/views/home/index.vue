@@ -30,6 +30,9 @@ const activeModule = computed(() =>
 
 // 仅当激活模块有二级菜单时使用 3 栏布局
 const showSecondary = computed(() => activeModule.value?.kind === "group");
+
+// 贴边页面（菜单配置 bleed: true）：去掉内容区内边距并禁止整页滚动
+const isBleed = computed(() => route.meta.bleed === true);
 </script>
 
 <template>
@@ -43,7 +46,7 @@ const showSecondary = computed(() => activeModule.value?.kind === "group");
     <!-- 页面栏：标题栏 + 内容 -->
     <div class="flex min-w-0 flex-1 flex-col">
       <TitleBar />
-      <div class="min-h-0 flex-1 overflow-auto p-6">
+      <div class="min-h-0 flex-1" :class="isBleed ? 'overflow-hidden' : 'overflow-auto p-6'">
         <!-- KeepAlive 缓存全部业务页面，切换路由时保留页面状态（如表单输入） -->
         <RouterView v-slot="{ Component }">
           <KeepAlive>

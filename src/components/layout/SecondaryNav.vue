@@ -11,7 +11,7 @@ const router = useRouter();
 
 <template>
   <aside class="flex w-48 shrink-0 flex-col gap-1 border-r bg-background p-3">
-    <p class="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <p class="mb-1 px-2 text-lg font-semibold uppercase tracking-wide text-muted-foreground">
       {{ module.title }}
     </p>
     <button

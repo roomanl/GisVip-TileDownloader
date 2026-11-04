@@ -16,6 +16,7 @@ import {
     Blocks,
     Compass,
     Download,
+    KeyRound,
     LayoutDashboard,
     Map,
     MessageSquare,
@@ -34,6 +35,11 @@ export interface PageEntry {
     route: string;
     /** 懒加载页面组件（由 router 自动注册为路由） */
     component: unknown;
+    /**
+     * 贴边（全出血）页面：内容区去掉 p-6 内边距并禁止整页滚动，
+     * 供地图等多栏铺满页面使用（路由 meta.bleed）。
+     */
+    bleed?: boolean;
 }
 
 /** 有二级菜单的模块（3 栏布局） */
@@ -68,6 +74,15 @@ export const menuConfig: MenuConfig = {
     logo: Compass,
     modules: [
         {
+            // 类型 2：无二级菜单 → 2 栏布局
+            kind: "page",
+            id: "map",
+            title: "地图下载",
+            icon: Map,
+            route: "/map",
+            component: () => import("@/views/modules/map/index.vue"),
+            bleed: true,
+        }, {
             // 类型 1：有二级菜单 → 3 栏布局
             kind: "group",
             id: "home",
@@ -93,15 +108,6 @@ export const menuConfig: MenuConfig = {
             ],
         },
         {
-            // 类型 2：无二级菜单 → 2 栏布局
-            kind: "page",
-            id: "map",
-            title: "地图",
-            icon: Map,
-            route: "/map",
-            component: () => import("@/views/modules/map/index.vue"),
-        },
-        {
             // 类型 3：自定义动作 → 点击弹出 Dialog，不打开页面
             kind: "custom",
             id: "tools",
@@ -111,7 +117,7 @@ export const menuConfig: MenuConfig = {
     ],
     bottomItems: [
         {
-            // 设置：底部栏一的 group 模块 → 3 栏布局，二级菜单为系统设置/下载设置
+            // 设置：底部栏一的 group 模块 → 3 栏布局，二级菜单为系统设置/下载设置/地图配置
             kind: "group",
             id: "settings",
             title: "设置",
@@ -123,7 +129,7 @@ export const menuConfig: MenuConfig = {
                     title: "系统设置",
                     icon: SlidersHorizontal,
                     route: "/settings/system",
-                    component: () => import("@/views/modules/settings-system/index.vue"),
+                    component: () => import("@/views/modules/settings/system/index.vue"),
                 },
                 {
                     kind: "page",
@@ -131,7 +137,15 @@ export const menuConfig: MenuConfig = {
                     title: "下载设置",
                     icon: Download,
                     route: "/settings/download",
-                    component: () => import("@/views/modules/settings-download/index.vue"),
+                    component: () => import("@/views/modules/settings/download/index.vue"),
+                },
+                {
+                    kind: "page",
+                    id: "settings-map",
+                    title: "地图配置",
+                    icon: KeyRound,
+                    route: "/settings/map",
+                    component: () => import("@/views/modules/settings/map/index.vue"),
                 },
             ],
         },

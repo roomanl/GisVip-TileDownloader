@@ -7,7 +7,7 @@ import { useAppStore } from "@/stores/app";
 /**
  * 栏一 custom 菜单项对应的弹窗集合。
  * menuActions 里 openDialog("tools")，这里按 dialogId 展示对应 Dialog。
- * （设置已改为 group 模块，页面在 views/modules/settings-system）
+ * （设置已改为 group 模块，页面在 views/modules/settings/*）
  */
 const appStore = useAppStore();
 

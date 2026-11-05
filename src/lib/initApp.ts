@@ -5,14 +5,17 @@ import { setupTray } from "@/lib/tray";
 import { isTauri } from "@/lib/env";
 
 export default {
-    install: (app: App) => {
+    install: (_app: App) => {
         // 读取持久化设置（主题/暗黑模式）并应用，需晚于 pinia 安装
         useSettingsStore().init();
-        window.addEventListener("DOMContentLoaded", () => {
-            setTimeout(() => {
-                invoke("show_main_window");
-            }, 50);
-        });
+        // 唤窗只在 Tauri 环境有效，浏览器预览下 invoke 会抛异常，跳过
+        if (isTauri) {
+            window.addEventListener("DOMContentLoaded", () => {
+                setTimeout(() => {
+                    invoke("show_main_window").catch((err) => console.error("唤窗失败:", err));
+                }, 50);
+            });
+        }
         // 仅在生产环境中禁用右键菜单
         if (import.meta.env.MODE === "production") {
             window.addEventListener("contextmenu", (e) => {

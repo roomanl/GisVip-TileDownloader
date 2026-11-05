@@ -16,6 +16,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-autostart": "^2.7.0",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-store": "^2.5.0",
     "@unovis/ts": "^1.7.1",
@@ -37,7 +38,12 @@
     "vue-input-otp": "^0.4.0",
     "vue-router": "^5.4.0",
     "vue-sonner": "^2.0.9",
-    "zod": "3.25.76"
+    "zod": "3.25.76",
+    "ol": "^10.7.0",
+    "coordtransform": "^2.1.2",
+    "proj4": "^2.20.2",
+    "projzh": "^1.0.0",
+    "dayjs": "^1.11.19"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

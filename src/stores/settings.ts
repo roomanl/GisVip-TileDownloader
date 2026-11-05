@@ -6,8 +6,10 @@ import {
     isEnabled,
 } from "@tauri-apps/plugin-autostart";
 import { load, type Store } from "@tauri-apps/plugin-store";
+import { join, resourceDir } from "@tauri-apps/api/path";
 import { isTauri } from "@/lib/env";
 import {
+    DOWNLOAD_DEFAULT_SUBDIR,
     DOWNLOAD_RETRY_RANGE,
     DOWNLOAD_THREADS_RANGE,
     SETTINGS_DEFAULTS,
@@ -31,7 +33,7 @@ function clampInt(value: number, min: number, max: number) {
  * - themeColor：主题配色（蓝/红/绿…），切换 <html> 的 .theme-* 类
  * - autostart：开机自启，状态以 autostart 插件为准（写入系统注册表/LaunchAgent）
  * - tiandituKey：天地图开发密钥（地图配置）
- * - downloadThreads/downloadRetryCount/autoDownload：下载设置（线程数/重试次数/自动下载）
+ * - downloadThreads/downloadRetryCount/autoDownload/downloadPath：下载设置（线程数/重试次数/自动下载/下载路径）
  * isDark/themeColor 即时持久化；地图配置与下载设置不自动保存，
  * 由页面「保存配置」按钮调用 saveMapConfig / saveDownloadConfig 写入 plugin-store（settings.json）。
  */
@@ -46,6 +48,10 @@ export const useSettingsStore = defineStore("settings", () => {
     const downloadThreads = ref(SETTINGS_DEFAULTS.download.threads);
     const downloadRetryCount = ref(SETTINGS_DEFAULTS.download.retryCount);
     const autoDownload = ref(SETTINGS_DEFAULTS.download.autoDownload);
+    /** 自定义下载路径，空字符串表示使用默认下载目录 */
+    const downloadPath = ref(SETTINGS_DEFAULTS.download.path);
+    /** 默认下载目录：资源目录（Windows 下即应用根目录）/downloads，启动时解析 */
+    const defaultDownloadPath = ref("");
     /** 最后一次写盘的下载设置快照，用于判断是否有未保存修改 */
     const savedDownload = ref({ ...SETTINGS_DEFAULTS.download });
 
@@ -92,12 +98,26 @@ export const useSettingsStore = defineStore("settings", () => {
                 }
                 const auto = await store.get<boolean>("autoDownload");
                 if (typeof auto === "boolean") autoDownload.value = auto;
+                const path = await store.get<string>("downloadPath");
+                if (path) downloadPath.value = path;
+                // 默认下载目录：资源目录下的 downloads 子目录
+                // 不用 executableDir()（它转发 dirs::executable_dir()，Windows/macOS 固定返回 None 并报 unknown path）
+                try {
+                    defaultDownloadPath.value = await join(await resourceDir(), DOWNLOAD_DEFAULT_SUBDIR);
+                } catch (err) {
+                    console.error("解析默认下载目录失败:", err);
+                }
                 snapshotDownload();
 
                 autostart.value = await isEnabled();
             } catch (err) {
                 console.error("读取持久化设置失败:", err);
             }
+        }
+
+        // 浏览器预览环境无法解析可执行文件目录，回退为相对路径占位，以免下载任务被路径校验永远拦住
+        if (!isTauri && !defaultDownloadPath.value) {
+            defaultDownloadPath.value = `./${DOWNLOAD_DEFAULT_SUBDIR}`;
         }
 
         applyAppearance();
@@ -140,33 +160,63 @@ export const useSettingsStore = defineStore("settings", () => {
             threads: downloadThreads.value,
             retryCount: downloadRetryCount.value,
             autoDownload: autoDownload.value,
+            path: downloadPath.value,
         };
     }
+
+    /** 是否仍使用默认下载目录（未自定义路径） */
+    const isUsingDefaultDownloadPath = computed(() => !downloadPath.value.trim());
+
+    /** 当前生效的下载目录（自定义路径优先，否则为默认目录） */
+    const effectiveDownloadPath = computed(
+        () => downloadPath.value.trim() || defaultDownloadPath.value,
+    );
 
     /** 下载设置是否有未保存的修改 */
     const isDownloadConfigDirty = computed(() =>
         downloadThreads.value !== savedDownload.value.threads
         || downloadRetryCount.value !== savedDownload.value.retryCount
-        || autoDownload.value !== savedDownload.value.autoDownload,
+        || autoDownload.value !== savedDownload.value.autoDownload
+        || downloadPath.value.trim() !== savedDownload.value.path,
     );
 
     /**
-     * 保存下载配置（写盘）：线程数/重试次数先限定到各自区间再写入 settings.json。
+     * 保存下载配置（写盘）：线程数/重试次数先限定到各自区间，路径去首尾空白后写入 settings.json。
      * 返回 true 表示已落盘；非 Tauri 环境或写入失败返回 false。
      */
     async function saveDownloadConfig() {
         downloadThreads.value = clampInt(downloadThreads.value, DOWNLOAD_THREADS_RANGE.min, DOWNLOAD_THREADS_RANGE.max);
         downloadRetryCount.value = clampInt(downloadRetryCount.value, DOWNLOAD_RETRY_RANGE.min, DOWNLOAD_RETRY_RANGE.max);
+        downloadPath.value = downloadPath.value.trim();
         if (!isTauri || !store) return false;
         try {
             await store.set("downloadThreads", downloadThreads.value);
             await store.set("downloadRetryCount", downloadRetryCount.value);
             await store.set("autoDownload", autoDownload.value);
+            await store.set("downloadPath", downloadPath.value);
             await store.save();
             snapshotDownload();
             return true;
         } catch (err) {
             console.error("保存下载配置失败:", err);
+            return false;
+        }
+    }
+
+    /**
+     * 设置并立即持久化下载路径（供地图页下载配置面板直接修改，与本页共用同一份状态）。
+     * 仅刷新快照中的 path，不影响线程数等其他项的 dirty 判定。返回 true 表示已落盘。
+     */
+    async function setDownloadPath(path: string) {
+        downloadPath.value = path.trim();
+        if (!isTauri || !store) return false;
+        try {
+            await store.set("downloadPath", downloadPath.value);
+            await store.save();
+            savedDownload.value = { ...savedDownload.value, path: downloadPath.value };
+            return true;
+        } catch (err) {
+            console.error("保存下载路径失败:", err);
             return false;
         }
     }
@@ -194,6 +244,10 @@ export const useSettingsStore = defineStore("settings", () => {
         downloadThreads,
         downloadRetryCount,
         autoDownload,
+        downloadPath,
+        defaultDownloadPath,
+        effectiveDownloadPath,
+        isUsingDefaultDownloadPath,
         isMapConfigDirty,
         isDownloadConfigDirty,
         isTauri,
@@ -201,5 +255,6 @@ export const useSettingsStore = defineStore("settings", () => {
         setAutostart,
         saveMapConfig,
         saveDownloadConfig,
+        setDownloadPath,
     };
 });

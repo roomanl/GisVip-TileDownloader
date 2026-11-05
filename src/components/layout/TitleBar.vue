@@ -15,9 +15,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
+import { isTauri } from "@/lib/env";
 
 const route = useRoute();
-const appWindow = getCurrentWindow();
+// getCurrentWindow() 会同步读取 __TAURI_INTERNALS__.metadata，非 Tauri 环境下直接抛错并拖垮整个壳层，必须先判环境
+const appWindow = isTauri ? getCurrentWindow() : null;
 
 /** 标题栏文本：取当前路由 meta.title */
 const title = computed(() => (route.meta.title as string | undefined) ?? "GisVip TileDownloader");
@@ -26,6 +28,7 @@ const isMaximized = ref(false);
 let unlistenResized: (() => void) | undefined;
 
 onMounted(async () => {
+  if (!appWindow) return;
   isMaximized.value = await appWindow.isMaximized();
   unlistenResized = await appWindow.onResized(async () => {
     isMaximized.value = await appWindow.isMaximized();
@@ -33,6 +36,19 @@ onMounted(async () => {
 });
 
 onUnmounted(() => unlistenResized?.());
+
+/** 窗口控制：浏览器预览环境下 appWindow 为 null，按钮点击不做任何动作 */
+function minimizeWindow() {
+  void appWindow?.minimize();
+}
+
+function toggleMaximizeWindow() {
+  void appWindow?.toggleMaximize();
+}
+
+function closeWindow() {
+  void appWindow?.close();
+}
 </script>
 
 <template>
@@ -47,13 +63,13 @@ onUnmounted(() => unlistenResized?.());
     <div class="ml-auto flex h-full">
       <button
         class="flex h-full w-10 cursor-pointer items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        @click="appWindow.minimize()"
+        @click="minimizeWindow"
       >
         <Minus class="size-4" />
       </button>
       <button
         class="flex h-full w-10 cursor-pointer items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        @click="appWindow.toggleMaximize()"
+        @click="toggleMaximizeWindow"
       >
         <Copy v-if="isMaximized" class="size-4" />
         <Square v-else class="size-4" />
@@ -76,7 +92,7 @@ onUnmounted(() => unlistenResized?.());
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction :class="buttonVariants({ variant: 'destructive' })" @click="appWindow.close()">
+            <AlertDialogAction :class="buttonVariants({ variant: 'destructive' })" @click="closeWindow">
               退出
             </AlertDialogAction>
           </AlertDialogFooter>

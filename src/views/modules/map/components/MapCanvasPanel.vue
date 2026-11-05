@@ -5,7 +5,7 @@ import { toast } from "vue-sonner";
 import "ol/ol.css";
 import OlMap, { MAX_ZOOM, MIN_ZOOM } from "@/lib/map/OlMap";
 import RegionBoundaryDrawer from "@/lib/map/RegionBoundaryDrawer";
-import { MapToolbar, MapZoomSlider } from "@/components/map";
+import { MapToolbar, MapZoomSlider, MapCoordinate } from "@/components/map";
 import { DOWNLOAD_CONFIG_DEFAULTS } from "@/config";
 import { useMapStore } from "@/stores/map";
 
@@ -32,6 +32,12 @@ const gridActive = ref(false);
 const drawActive = ref(false);
 /** 当前地图层级：滑块与视图双向同步的单一数据源（视图层级取整后写入） */
 const zoomLevel = ref(MIN_ZOOM);
+/** 鼠标经纬度(WGS84)[lng, lat]：坐标展示组件的单一数据源，由地图鼠标事件回填 */
+const coordinate = ref<[number, number] | null>(null);
+/** 坐标取值模式：move 实时跟随鼠标，click 仅点击地图后更新 */
+const coordMode = ref<"move" | "click">("move");
+/** 比例尺容器：把 OL ScaleLine 控件渲染到坐标组件右侧 */
+const scaleLineRef = ref<HTMLDivElement>();
 let resizeObserver: ResizeObserver | null = null;
 
 /** 绘制选中区域边界：有选中则拉取边界并回填范围与面积，取消选中则一并清除 */
@@ -105,19 +111,33 @@ function onClear() {
   resetBoundaryResult();
 }
 
+/** 坐标组件：切换“实时跟随鼠标”与“仅点击地图获取”两种取值模式 */
+function onToggleCoordMode() {
+  coordMode.value = coordMode.value === "move" ? "click" : "move";
+}
+
 onMounted(() => {
   const container = containerRef.value;
   if (!container) return;
 
   const instance = new OlMap();
   instance.initMap(container);
-  instance.addScaleLine();
+  // 比例尺渲染到坐标组件右侧的容器，与坐标展示同处左下角一行
+  instance.addScaleLine(scaleLineRef.value);
   olMap.value = instance;
   boundaryDrawer = new RegionBoundaryDrawer(instance);
 
   // 层级双向同步：初始值取视图当前层级，后续由视图变化回写（取整，缩放动画中为小数）
   zoomLevel.value = Math.round(instance.getZoom());
   instance.onChangeZoom((zoom) => (zoomLevel.value = Math.round(zoom)));
+
+  // 坐标：实时模式下鼠标移动跟随，点击模式下仅点击地图后更新
+  instance.onPointerMove((lonlat) => {
+    if (coordMode.value === "move") coordinate.value = lonlat;
+  });
+  instance.onPointerClick((lonlat) => {
+    if (coordMode.value === "click") coordinate.value = lonlat;
+  });
 
   if (mapStore.selectedLayer) instance.loadBaseMap(mapStore.selectedLayer);
   // 地图重建后补画已选中区域的边界（store 中的选中状态跨组件实例保留）
@@ -203,6 +223,16 @@ onBeforeUnmount(() => {
         :min="MIN_ZOOM"
         :max="MAX_ZOOM"
       />
+
+      <!-- 左下角：坐标展示 + 比例尺（比例尺渲染到坐标组件右侧容器） -->
+      <div class="absolute bottom-2 left-2 z-10 flex items-center gap-2">
+        <MapCoordinate
+          :coordinate="coordinate"
+          :mode="coordMode"
+          @toggle-mode="onToggleCoordMode"
+        />
+        <div ref="scaleLineRef" class="flex items-center" />
+      </div>
     </div>
   </div>
 </template>
@@ -248,6 +278,14 @@ onBeforeUnmount(() => {
   left: auto;
   right: 0.5rem;
   bottom: 0.5rem;
+}
+
+/* 比例尺改用 target 渲染到坐标组件右侧的弹性容器，取消 OL 默认的左下角绝对定位 */
+:deep(.ol-scale-line) {
+  position: static;
+  right: auto;
+  bottom: auto;
+  left: auto;
 }
 
 /* 层级滑块：紧贴在放大/缩小控件下方（缩放控件高约 78px + 上偏移 8px + 间隙 → top 5.625rem，与滑块同 right 对齐） */

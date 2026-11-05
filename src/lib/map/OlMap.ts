@@ -9,7 +9,7 @@ import OverviewMap from 'ol/control/OverviewMap';
 import { unByKey } from 'ol/Observable'
 import { getArea } from 'ol/sphere';
 import { getCenter } from 'ol/extent'
-import { addProjection, addCoordinateTransforms } from 'ol/proj';
+import { addProjection, addCoordinateTransforms, toLonLat } from 'ol/proj';
 import { useSettingsStore } from '@/stores/settings'
 import { gcj02ToMercator } from '@/lib/map/utils/TransformUtils'
 import { isTdt } from '@/lib/map/utils/Utils'
@@ -56,6 +56,10 @@ export default class OlMap {
     private overviewMap: OverviewMap | null = null;
     /** 层级变化监听句柄：由 onChangeZoom 登记，置空或销毁时移除 */
     private zoomListener: EventsKey | null = null;
+    /** 鼠标移动监听句柄：由 onPointerMove 登记，置空或销毁时移除 */
+    private pointerMoveListener: EventsKey | null = null;
+    /** 地图单击监听句柄：由 onPointerClick 登记，置空或销毁时移除 */
+    private clickListener: EventsKey | null = null;
     /** initMap 之后才有值，构造到初始化之间不对外暴露任何地图操作 */
     private map!: Map;
     private mapView!: View;
@@ -93,13 +97,16 @@ export default class OlMap {
     /** 卸载地图：释放渲染器、控件（含总览图内嵌 Map）与 DOM，组件卸载时调用 */
     destroy() {
         this.onChangeZoom(null)
+        this.onPointerMove(null)
+        this.onPointerClick(null)
         this.map?.dispose()
         this.map = undefined as unknown as Map
     }
 
-    addScaleLine() {
+    addScaleLine(target?: HTMLElement) {
         if (!this.scaleLine) {
-            this.scaleLine = new ScaleLine()
+            // 传入 target 时比例尺渲染到该外部容器（坐标展示组件右侧），否则默认挂在地图左下角
+            this.scaleLine = new ScaleLine(target ? { target } : undefined)
         }
         this.map.addControl(this.scaleLine)
     }
@@ -256,6 +263,35 @@ export default class OlMap {
         if (!cb) return
         const view = this.getMapView()
         this.zoomListener = view.on('change:resolution', () => cb(view.getZoom() ?? MIN_ZOOM))
+    }
+
+    /** 地图事件坐标（视图投影）转经纬度(WGS84)[lng, lat] */
+    private eventToLonLat(evt: { coordinate: Coordinate }): [number, number] {
+        const [lng, lat] = toLonLat(evt.coordinate, this.baseProjection)
+        return [lng, lat]
+    }
+
+    /**
+     * 登记/解除鼠标移动回调，回参为鼠标所在经纬度(WGS84)[lng, lat]。
+     * 传 null 解除监听，避免地图销毁或组件卸载后仍向外部状态回写。
+     */
+    onPointerMove(cb: ((lonlat: [number, number]) => void) | null) {
+        if (this.pointerMoveListener) {
+            unByKey(this.pointerMoveListener)
+            this.pointerMoveListener = null
+        }
+        if (!cb) return
+        this.pointerMoveListener = this.map.on('pointermove', (evt) => cb(this.eventToLonLat(evt)))
+    }
+
+    /** 登记/解除地图单击回调，回参为点击点经纬度(WGS84)。传 null 解除。 */
+    onPointerClick(cb: ((lonlat: [number, number]) => void) | null) {
+        if (this.clickListener) {
+            unByKey(this.clickListener)
+            this.clickListener = null
+        }
+        if (!cb) return
+        this.clickListener = this.map.on('singleclick', (evt) => cb(this.eventToLonLat(evt)))
     }
 
     /** 底图与注记层透明度（0~1） */

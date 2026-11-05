@@ -257,6 +257,9 @@ onBeforeUnmount(() => {
   background-color: color-mix(in oklab, var(--color-card) 95%, transparent);
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   backdrop-filter: blur(4px);
+  button{
+    background-color: color-mix(in oklab, var(--color-card) 95%, transparent) !important;
+  }
 }
 
 /* 按钮撑满面板内容宽、用主色底呼应滑块数值块，字形居中 */

@@ -16,7 +16,8 @@ import { useSettingsStore } from "@/stores/settings";
 
 /**
  * 左栏「下载配置」Tab：区域名称 / 下载范围 / 下载层级 / 源坐标系 / 瓦片数量 / 瓦片格式 / 下载路径。
- * 表单状态统一放 useMapStore（区域名称由 selectRegion 自动回填，瓦片数量与下载范围由外部计算赋值）；
+ * 表单状态统一放 useMapStore（区域名称由 selectRegion 自动回填，下载范围由边界绘制结果回填，
+ * 瓦片数量由 store 监听「范围 + 层级 + 地图源」自动计算）；
  * 下载路径与系统设置共用 useSettingsStore，此处选定目录后即时写盘、两侧同步。
  */
 const map = useMapStore();

@@ -1,7 +1,8 @@
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
 import { layerList, type MapLayer } from "@/config/layerList";
 import { DOWNLOAD_CONFIG_DEFAULTS, DOWNLOAD_LEVEL_RANGE } from "@/config";
+import { calculateBdTileCount, calculateTileCount, isBdMap } from "@/lib/map/utils/Utils";
 import { useSettingsStore } from "@/stores/settings";
 
 /** 取第一个可选地图源（首个分组的首个叶子），用于默认选中 */
@@ -134,6 +135,33 @@ export const useMapStore = defineStore("map", () => {
     /** 源坐标系：选中图层的 projection，未选图层时为空 */
     const sourceProjection = computed(() => selectedLayer.value?.projection ?? "");
 
+    /** 选中图层是否为百度瓦片网格（百度墨卡托行列号与通用墨卡托不同） */
+    const isBaiduSource = computed(() => isBdMap(selectedLayer.value?.mapType));
+
+    /**
+     * 按下载范围与层级计算瓦片数量并回填 tileCount。
+     * 范围来自区域边界绘制或矩形绘制结果（WGS84 坐标串），无效时归零（页面隐藏该项）。
+     */
+    function recalculateTileCount() {
+        const parts = downloadExtent.value.split(",").map(Number);
+        if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) {
+            tileCount.value = DOWNLOAD_CONFIG_DEFAULTS.tileCount;
+            return;
+        }
+        const { totalCount } = isBaiduSource.value
+            ? calculateBdTileCount(parts, [downloadLevelMin.value, downloadLevelMax.value])
+            : calculateTileCount(parts, [downloadLevelMin.value, downloadLevelMax.value]);
+        tileCount.value = totalCount;
+    }
+
+    // 范围（区域选择/矩形绘制回填）、层级、地图源任一变化都重算瓦片数。
+    // 层级用 join 取值：滑块会整体替换数组，join 同时能覆盖引用未变的极端情况。
+    watch(
+        [downloadExtent, isBaiduSource, () => downloadLevels.value.join(",")],
+        () => recalculateTileCount(),
+        { immediate: true },
+    );
+
     /** 选中图层是否含注记图层，决定「同时下载注记」配置项是否展示 */
     const hasLabelLayer = computed(() => !!selectedLayer.value?.labelLayer);
 
@@ -204,6 +232,7 @@ export const useMapStore = defineStore("map", () => {
         downloadWithLabel,
         hasLabelLayer,
         sourceProjection,
+        recalculateTileCount,
         downloadTasks,
         validateDownloadConfig,
         addDownloadTask,

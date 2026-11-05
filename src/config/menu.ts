@@ -18,6 +18,7 @@ import {
     Download,
     KeyRound,
     LayoutDashboard,
+    ListChecks,
     Map,
     MessageSquare,
     Settings,
@@ -81,6 +82,15 @@ export const menuConfig: MenuConfig = {
             icon: Map,
             route: "/map",
             component: () => import("@/views/modules/map/index.vue"),
+            bleed: true,
+        }, {
+            // 下载管理：独立一级模块 → 2 栏布局（左任务列表 / 右任务详情）
+            kind: "page",
+            id: "download",
+            title: "下载管理",
+            icon: ListChecks,
+            route: "/download",
+            component: () => import("@/views/modules/download/index.vue"),
             bleed: true,
         }, {
             // 类型 1：有二级菜单 → 3 栏布局

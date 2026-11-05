@@ -7,31 +7,17 @@ import {
 } from "@tauri-apps/plugin-autostart";
 import { load, type Store } from "@tauri-apps/plugin-store";
 import { isTauri } from "@/lib/env";
+import {
+    DOWNLOAD_RETRY_RANGE,
+    DOWNLOAD_THREADS_RANGE,
+    SETTINGS_DEFAULTS,
+    THEME_COLORS,
+    type ThemeColorOption,
+} from "@/config";
 
-/** 主题配色选项（value 对应 index.css 中的 .theme-* 类，default 不加类） */
-export interface ThemeColorOption {
-    value: string;
-    label: string;
-    /** 色块预览色 */
-    swatch: string;
-}
-
-export const THEME_COLORS: ThemeColorOption[] = [
-    { value: "default", label: "默认", swatch: "oklch(0.205 0 0)" },
-    { value: "blue", label: "蓝色", swatch: "oklch(0.546 0.245 262.881)" },
-    { value: "red", label: "红色", swatch: "oklch(0.585 0.233 27.711)" },
-    { value: "green", label: "绿色", swatch: "oklch(0.627 0.194 149.214)" },
-    { value: "orange", label: "橙色", swatch: "oklch(0.666 0.179 58.318)" },
-    { value: "purple", label: "紫色", swatch: "oklch(0.558 0.288 302.321)" },
-];
-
-/** 下载线程数取值范围（NumberField 与写盘前限定共用） */
-export const DOWNLOAD_THREADS_RANGE = { min: 1, max: 256 };
-/** 下载重试次数取值范围 */
-export const DOWNLOAD_RETRY_RANGE = { min: 1, max: 100 };
-
-/** 下载设置默认值（无持久化记录时使用） */
-const DOWNLOAD_DEFAULTS = { threads: 4, retryCount: 3, autoDownload: false };
+// 设置项选项/范围/默认值统一在 @/config 中配置，这里转发导出以兼容页面既有引用
+export { THEME_COLORS, DOWNLOAD_THREADS_RANGE, DOWNLOAD_RETRY_RANGE };
+export type { ThemeColorOption };
 
 /** 限定到 [min, max] 区间并取整（非法值回退到 min） */
 function clampInt(value: number, min: number, max: number) {
@@ -51,17 +37,17 @@ function clampInt(value: number, min: number, max: number) {
  */
 export const useSettingsStore = defineStore("settings", () => {
     const isDark = ref(window.matchMedia("(prefers-color-scheme: dark)").matches);
-    const themeColor = ref<string>("default");
+    const themeColor = ref<string>(SETTINGS_DEFAULTS.themeColor);
     const autostart = ref(false);
-    const tiandituKey = ref("");
+    const tiandituKey = ref(SETTINGS_DEFAULTS.tiandituKey);
     /** 最后一次写盘的天地图 key，用于判断是否有未保存修改 */
     const savedTiandituKey = ref("");
 
-    const downloadThreads = ref(DOWNLOAD_DEFAULTS.threads);
-    const downloadRetryCount = ref(DOWNLOAD_DEFAULTS.retryCount);
-    const autoDownload = ref(DOWNLOAD_DEFAULTS.autoDownload);
+    const downloadThreads = ref(SETTINGS_DEFAULTS.download.threads);
+    const downloadRetryCount = ref(SETTINGS_DEFAULTS.download.retryCount);
+    const autoDownload = ref(SETTINGS_DEFAULTS.download.autoDownload);
     /** 最后一次写盘的下载设置快照，用于判断是否有未保存修改 */
-    const savedDownload = ref({ ...DOWNLOAD_DEFAULTS });
+    const savedDownload = ref({ ...SETTINGS_DEFAULTS.download });
 
     let store: Store | null = null;
 

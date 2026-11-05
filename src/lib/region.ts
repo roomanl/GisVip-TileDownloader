@@ -57,3 +57,16 @@ export async function fetchRegionChildren(adcode: string): Promise<RegionNode[]>
         .filter((p): p is Record<string, any> => !!p && p.adcode != null)
         .map((p) => makeNode(p));
 }
+
+/**
+ * 拉取指定区域自身的轮廓 GeoJSON（{adcode}.json，单个 Feature，不含下级区划）。
+ * 返回原始文本交由地图绘制类渲染；坐标为高德火星坐标(GCJ-02)，
+ * 绘制前需回算 WGS84 才能与已重投影的底图套合（见 lib/map/RegionBoundaryDrawer）。
+ */
+export async function fetchRegionBoundary(adcode: string): Promise<string> {
+    const res = await fetch(`${aliyunDatavBaseUrl}${adcode}.json`);
+    if (!res.ok) {
+        throw new Error(`加载区域边界失败：${adcode}（HTTP ${res.status}）`);
+    }
+    return res.text();
+}

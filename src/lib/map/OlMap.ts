@@ -6,6 +6,7 @@ import SourceXYZ from 'ol/source/XYZ'
 import Stroke from 'ol/style/Stroke'
 import ScaleLine from 'ol/control/ScaleLine';
 import OverviewMap from 'ol/control/OverviewMap';
+import { unByKey } from 'ol/Observable'
 import { getArea } from 'ol/sphere';
 import { getCenter } from 'ol/extent'
 import { addProjection, addCoordinateTransforms } from 'ol/proj';
@@ -18,6 +19,7 @@ import BaiDuTileLayer from '@/lib/map/layer/BaiDuTileLayer'
 import TencentTileLayer from '@/lib/map/layer/TencentTileLayer'
 import type { Coordinate } from 'ol/coordinate'
 import type { Extent } from 'ol/extent'
+import type { EventsKey } from 'ol/events'
 import type { Polygon, MultiPolygon } from 'ol/geom'
 import type { MapLayer } from '@/config/layerList'
 import type { TileLayerLike } from '@/lib/map/types'
@@ -26,8 +28,10 @@ import type { TileLayerLike } from '@/lib/map/types'
 const DEFAULT_CENTER = gcj02ToMercator([116.405285, 39.904989])
 /** 初始层级 */
 const DEFAULT_ZOOM = 10
-/** 视图最大层级 */
-const MAX_ZOOM = 18
+/** 视图最小层级：层级滑块取值下限与视图约束共用，避免两处写死 */
+export const MIN_ZOOM = 0
+/** 视图最大层级：层级滑块取值上限与视图约束共用 */
+export const MAX_ZOOM = 18
 /** 注记层插在底图之上 */
 const LABEL_LAYER_INDEX = 1
 /** 面积展示阈值：超过 1 万平方米改用平方千米，否则用平方米 */
@@ -50,6 +54,8 @@ export default class OlMap {
     private graticuleLayer: Graticule | null = null;
     private scaleLine: ScaleLine | null = null;
     private overviewMap: OverviewMap | null = null;
+    /** 层级变化监听句柄：由 onChangeZoom 登记，置空或销毁时移除 */
+    private zoomListener: EventsKey | null = null;
     /** initMap 之后才有值，构造到初始化之间不对外暴露任何地图操作 */
     private map!: Map;
     private mapView!: View;
@@ -62,6 +68,7 @@ export default class OlMap {
             projection: this.baseProjection,
             center: DEFAULT_CENTER,
             zoom: DEFAULT_ZOOM,
+            minZoom: MIN_ZOOM,
             maxZoom: MAX_ZOOM
         })
         this.map = new Map({
@@ -85,6 +92,7 @@ export default class OlMap {
 
     /** 卸载地图：释放渲染器、控件（含总览图内嵌 Map）与 DOM，组件卸载时调用 */
     destroy() {
+        this.onChangeZoom(null)
         this.map?.dispose()
         this.map = undefined as unknown as Map
     }
@@ -207,7 +215,11 @@ export default class OlMap {
 
     /** 面积文本：大于一万平方米按平方千米展示 */
     formatArea(polygon: Polygon | MultiPolygon) {
-        const area = this.getArea(polygon);
+        return this.formatAreaValue(this.getArea(polygon))
+    }
+
+    /** 面积数值（平方米）转展示文本：与 formatArea 同一取舍规则，供外部累加多块几何后复用 */
+    formatAreaValue(area: number) {
         return area > SQUARE_KM_THRESHOLD
             ? `${Math.round((area / 1000000) * 100) / 100} 平方千米`
             : `${Math.round(area * 100) / 100} 平方米`;
@@ -225,6 +237,25 @@ export default class OlMap {
 
     setZoom(zoom: number) {
         this.getMapView().setZoom(zoom)
+    }
+
+    /** 当前视图层级：缩放动画过程中为小数，展示前应取整 */
+    getZoom() {
+        return this.getMapView().getZoom() ?? MIN_ZOOM
+    }
+
+    /**
+     * 登记/解除视图层级变化回调（滚轮、缩放按钮、定位动画都会触发）。
+     * 传入 null 解除监听，避免地图销毁或组件卸载后仍向外部状态回写。
+     */
+    onChangeZoom(cb: ((zoom: number) => void) | null) {
+        if (this.zoomListener) {
+            unByKey(this.zoomListener)
+            this.zoomListener = null
+        }
+        if (!cb) return
+        const view = this.getMapView()
+        this.zoomListener = view.on('change:resolution', () => cb(view.getZoom() ?? MIN_ZOOM))
     }
 
     /** 底图与注记层透明度（0~1） */

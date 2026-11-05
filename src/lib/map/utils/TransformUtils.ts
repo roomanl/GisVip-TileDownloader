@@ -44,6 +44,27 @@ export const gcj02ToMercatorMultiPolygon = (coordinates: MultiPolygon): MultiPol
 export const gcj02ToWgs84MultiPolygon = (coordinates: MultiPolygon): MultiPolygon =>
     transformMultiPolygonPoints(coordinates, gcj02ToWgs84);
 
+/**
+ * 火星坐标(GCJ-02) 扁平坐标串逐点回算经纬度(WGS84)。
+ * 形参与返回值兼容 ol/geom/Geometry#applyTransform 的变换函数，
+ * 可直接用于把 GeoJSON 几何（Polygon/MultiPolygon 等）整体做偏移校正。
+ */
+export const gcj02ToWgs84FlatCoordinates = (
+    flatCoordinates: number[],
+    output?: number[],
+    dimension = 2,
+): number[] => {
+    const result = output ?? new Array<number>(flatCoordinates.length);
+    for (let i = 0; i < flatCoordinates.length; i += dimension) {
+        const [lng, lat] = gcj02ToWgs84([flatCoordinates[i], flatCoordinates[i + 1]]);
+        result[i] = lng;
+        result[i + 1] = lat;
+        // 第三维（如高程）原样保留
+        for (let k = i + 2; k < i + dimension; k++) result[k] = flatCoordinates[k];
+    }
+    return result;
+};
+
 /** 任意投影间的多面坐标转换 */
 export const transformMultiPolygon = (
     coordinates: MultiPolygon,

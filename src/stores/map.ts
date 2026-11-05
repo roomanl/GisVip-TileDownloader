@@ -91,8 +91,9 @@ export const useMapStore = defineStore("map", () => {
 
     /** 当前选中的行政区划，null 表示未选择 */
     const selectedRegion = ref<RegionSelection | null>(null);
-    /** 下载配置表单：区域名称 / 下载范围 / 层级起止 / 瓦片格式 / 瓦片数量（区域名称由选中区域自动填入） */
+    /** 下载配置表单：区域名称 / 下载范围 / 层级起止 / 瓦片格式 / 瓦片数量（区域名称与下载范围由选中区域自动回填） */
     const downloadAreaName = ref(DOWNLOAD_CONFIG_DEFAULTS.areaName);
+    /** 下载范围（英文逗号分隔的经纬度 WGS84 坐标串 minLng,minLat,maxLng,maxLat），由区域边界绘制结果回填 */
     const downloadExtent = ref(DOWNLOAD_CONFIG_DEFAULTS.extent);
     const downloadLevels = ref<number[]>([...DOWNLOAD_CONFIG_DEFAULTS.levels]);
     const tileFormat = ref<string>(DOWNLOAD_CONFIG_DEFAULTS.tileFormat);
@@ -115,6 +116,8 @@ export const useMapStore = defineStore("map", () => {
     function clearRegion() {
         selectedRegion.value = null;
         downloadAreaName.value = DOWNLOAD_CONFIG_DEFAULTS.areaName;
+        // 区域已取消，由边界绘制回填的下载范围同时清空
+        downloadExtent.value = DOWNLOAD_CONFIG_DEFAULTS.extent;
     }
 
     function clearSelection() {
